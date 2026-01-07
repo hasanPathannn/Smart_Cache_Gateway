@@ -24,30 +24,7 @@ Instead of blindly forwarding every request, SmartCache intercepts calls and per
 ---
 
 ## 🏗️ Architecture
-
-```text
-+--------+       +-------------------+       +---------------------+
-| Client | ----> |  FastAPI Gateway  | ----> |  Redis Rate Limiter |
-+--------+       +-------------------+       +----------+----------+
-     ^                    |                             |
-     |                    v                             v
-     |          +-------------------+          +------------------+
-     |          |   Semantic Cache  | <------- | Token Bucket Lua |
-     |          |  (Vector Search)  |          +------------------+
-     |          +---------+---------+
-     |                    |
-     |        (Hit)       |      (Miss)
-     +--------------------+         |
-                                    v
-                          +-------------------+
-                          |    LLM Service    | <---> [ OpenAI / Anthropic ]
-                          +---------+---------+       [      Failover      ]
-                                    |
-                                    v
-                          +-------------------+
-                          |  Background Task  |
-                          |  (Async Write)    | ----> [ Update Vector DB ]
-                          +-------------------+
+![System Architecture](assets/architecture.png)
 
 🛠️ Tech Stack
 Backend: Python, FastAPI (Async/Await)
