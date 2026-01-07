@@ -1,0 +1,32 @@
+
+
+services:
+  redis:
+    image: redis/redis-stack-server:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+  prometheus:
+      image: prom/prometheus
+      volumes:
+        - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      ports:
+        - "9090:9090"
+
+volumes:
+  redis_data:

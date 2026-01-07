@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+redis
+numpy
+sentence-transformers  # Local embedding model
+openai
+pydantic-settings
+prometheus-fastapi-instrumentator

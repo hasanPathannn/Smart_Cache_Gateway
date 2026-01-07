@@ -1,0 +1,43 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: smartcache-service
+spec:
+  type: LoadBalancer  # Exposes IP to outside world
+  selector:
+    app: smartcache
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smartcache-deployment
+spec:
+  replicas: 3  # SCALING
+  selector:
+    matchLabels:
+      app: smartcache
+  template:
+    metadata:
+      labels:
+        app: smartcache
+    spec:
+      containers:
+      - name: smartcache
+        image: smart-cache-gateway:latest # local docker image tag
+        imagePullPolicy: IfNotPresent     # Uses local image for Minikube/Docker Desktop
+        env:
+        - name: REDIS_URL
+          value: "redis://redis:6379"     # Points to the Service name defined above
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        ports:
+        - containerPort: 8000
