@@ -24,7 +24,7 @@ Instead of blindly forwarding every request, SmartCache intercepts calls and per
 ---
 
 ## 🏗️ Architecture
-![System Architecture](assets/architecture.png)
+![System Architecture](./assets/SmartCache.png)
 
 🛠️ Tech Stack
 Backend: Python, FastAPI (Async/Await)
