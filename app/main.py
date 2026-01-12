@@ -10,6 +10,8 @@ from app.services.cache_service import SemanticCache
 from app.services.rate_limiter import RateLimiter
 from app.services.llm_service import LLMService
 
+from app.services.intent_classifier import IntentClassifier
+
 app = FastAPI(title="SmartCache Gateway")
 
 # --- Initialize Services ---
@@ -17,6 +19,7 @@ redis_client = Redis.from_url(settings.REDIS_URL)
 cache_engine = SemanticCache(redis_client)
 rate_limiter = RateLimiter(redis_client, rate=settings.RATE_LIMIT_PER_SEC, capacity=settings.RATE_LIMIT_BURST)
 llm_service = LLMService()
+intent_classifier = IntentClassifier()
 
 # --- Metrics ---
 CACHE_HITS = Counter("smartcache_hits_total", "Number of cache hits")
@@ -45,8 +48,18 @@ async def chat_endpoint(request: ChatRequest, response: Response, background_tas
             cost_incurred=False
         )
 
-    # 2. Check Cache
-    cached_text = cache_engine.check_cache(request.prompt)
+   
+    # 2. NEW LOGIC: Intent Classification (The Security Guard)
+    is_static = intent_classifier.is_cacheable(request.prompt)
+    cached_text = None
+
+    if is_static:
+        # Only check cache if the question is "safe" (generic)
+        cached_text = cache_engine.check_cache(request.prompt)
+    else:
+        print(f"Dynamic Intent Detected: '{request.prompt}'. Bypassing Cache.")
+
+    # 3. Cache Hit (Only if Static AND Found)
     if cached_text:
         CACHE_HITS.inc()
         SAVED_COST.inc(0.002)
@@ -56,14 +69,23 @@ async def chat_endpoint(request: ChatRequest, response: Response, background_tas
             latency_saved="High"
         )
 
-    # 3. Cache Miss - Call LLM with Failover
+    # 4. Cache Miss (Or Forced Bypass) - Call LLM
     CACHE_MISSES.inc()
     
-    # It now safely unpacks the tuple from the service
-    llm_text, provider = llm_service.get_response(request.prompt)
+    try:
+        llm_text, provider = llm_service.get_response(request.prompt)
+    except Exception as e:
+        response.status_code = 500
+        return ChatResponse(
+            response=f"Internal Error: {str(e)}",
+            source="internal_error",
+            cost_incurred=False
+        )
     
-    # 4. Background Update
-    background_tasks.add_task(background_cache_update, request.prompt, llm_text)
+    # 5. Background Update (ONLY if it was static!)
+    # We do NOT want to cache "My order status is pending" for everyone to see.
+    if is_static:
+        background_tasks.add_task(background_cache_update, request.prompt, llm_text)
 
     return ChatResponse(
         response=llm_text,
